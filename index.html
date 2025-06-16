@@ -1,0 +1,132 @@
+    border: 4px solid #ff0000;
+    border-radius: 15px;
+    padding: 30px;
+    box-shadow: 0 0 40px #ff0000;
+  }
+  p {
+    font-size: 20px;
+    line-height: 1.6;
+    margin: 18px 0;
+  }
+  .label {
+    font-weight: 900;
+    font-size: 22px;
+    color: #ff4c4c;
+    display: inline-block;
+    min-width: 180px;
+  }
+  .value {
+    font-weight: 700;
+    font-size: 22px;
+    color: #ff9999;
+  }
+  .warning {
+    margin-top: 40px;
+    font-size: 26px;
+    font-weight: 900;
+    text-align: center;
+    color: #ff0000;
+    text-shadow: 0 0 15px #ff0000;
+    letter-spacing: 4px;
+  }
+  .blink {
+    animation: blink 1.2s infinite;
+  }
+  @keyframes blink {
+    0%, 100% {opacity: 1;}
+    50% {opacity: 0;}
+  }
+</style>
+</head>
+<body>
+  <div class="container" id="info-container">
+    <h1>!!! KRİTİK GÜVENLİK İHLALİ !!!</h1>
+    <p><span class="label">IP ADRESİNİZ:</span><span class="value" id="ip">Yükleniyor...</span></p>
+    <p><span class="label">KONUMUNUZ:</span><span class="value" id="location">Yükleniyor...</span></p>
+    <p><span class="label">ŞEHİR / BÖLGE:</span><span class="value" id="region">Yükleniyor...</span></p>
+    <p><span class="label">ÜLKE:</span><span class="value" id="country">Yükleniyor...</span></p>
+    <p><span class="label">KOORDİNATLAR:</span><span class="value" id="coordinates">Yükleniyor...</span></p>
+    <p><span class="label">İNTERNET SAĞLAYICINIZ (ISP):</span><span class="value" id="isp">Yükleniyor...</span></p>
+    <p><span class="label">SAAT DİLİMİNİZ:</span><span class="value" id="timezone">Yükleniyor...</span></p>
+    <p><span class="label">TARAYICI & CİHAZ:</span><span class="value" id="device">Yükleniyor...</span></p>
+    <p><span class="label">AKILLI TELEFON/MODELİ (Varsa):</span><span class="value" id="phone">Bilinmiyor</span></p>
+    <p><span class="label">BAĞLANTI TÜRÜ:</span><span class="value" id="connection">Yükleniyor...</span></p>
+    <p><span class="label">WEBRTC IP ADRESİNİZ:</span><span class="value" id="webrtc">Alınıyor...</span></p>
+    <p class="warning blink">
+      SENİ İZLİYORUZ! TÜM HAREKETLERİN KONTROLÜMÜZ ALTINDA!<br />
+      GİZLENMEYE ÇALIŞMAK BOŞA! HER ŞEY ELİMİZDE!<br />
+      BU BİR UYARIDIR!
+    </p>
+  </div>
+
+<script>
+  async function fetchUserInfo() {
+    try {
+      const res = await fetch('https://ipapi.co/json/');
+      const data = await res.json();
+
+      document.getElementById('ip').innerText = data.ip;
+      document.getElementById('location').innerText = `${data.city}, ${data.region_code}`;
+      document.getElementById('region').innerText = data.region;
+      document.getElementById('country').innerText = data.country_name;
+      document.getElementById('coordinates').innerText = `${data.latitude}, ${data.longitude}`;
+      document.getElementById('isp').innerText = data.org;
+      document.getElementById('timezone').innerText = data.timezone;
+
+      const deviceInfo = navigator.userAgent;
+      document.getElementById('device').innerText = deviceInfo;
+
+      // Bağlantı tipi (örn: wifi, ethernet) için Network Information API (destek sınırlı)
+      const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      if(connection && connection.effectiveType){
+        document.getElementById('connection').innerText = connection.effectiveType;
+      } else {
+        document.getElementById('connection').innerText = 'Bilinmiyor';
+      }
+
+      // WebRTC IP yakalama (sadece yerel IP)
+      getWebRTCIP().then(ip => {
+        document.getElementById('webrtc').innerText = ip || 'Alınamadı';
+      });
+
+      // Basit telefon modeli tespiti (userAgent içinde arama)
+      const ua = navigator.userAgent.toLowerCase();
+      let phoneModel = 'Bilinmiyor';
+      if(ua.includes('iphone')) phoneModel = 'Apple iPhone';
+      else if(ua.includes('android')) phoneModel = 'Android Telefon';
+      document.getElementById('phone').innerText = phoneModel;
+
+    } catch(e){
+      document.querySelectorAll('.value').forEach(el => el.innerText = 'Alınamadı');
+    }
+  }
+
+  function getWebRTCIP() {
+    return new Promise(resolve => {
+      const RTCPeerConnection = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
+      if (!RTCPeerConnection) {
+        resolve(null);
+        return;
+      }
+      const pc = new RTCPeerConnection({iceServers: []});
+      pc.createDataChannel('');
+      pc.createOffer().then(offer => pc.setLocalDescription(offer)).catch(() => resolve(null));
+      pc.onicecandidate = event => {
+        if (!event || !event.candidate) {
+          pc.close();
+          return;
+        }
+        const ipRegex = /([0-9]{1,3}(\.[0-9]{1,3}){3})/;
+        const ipMatch = ipRegex.exec(event.candidate.candidate);
+        if (ipMatch) {
+          resolve(ipMatch[1]);
+        }
+        pc.close();
+      };
+    });
+  }
+
+  fetchUserInfo();
+</script>
+</body>
+</html>
